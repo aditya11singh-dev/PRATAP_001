@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Dotsquares ChatBot</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f2f5;
+      margin: 0;
+      padding: 0;
+    }
+
+    h1 {
+      text-align: center;
+      color: #0078d4;
+      padding: 15px;
+    }
+
+    .chat-icon {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      background: #0078d4;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      color: white;
+      font-size: 30px;
+      text-align: center;
+      line-height: 60px;
+      cursor: pointer;
+      z-index: 999;
+    }
+
+    .chat-container {
+      display: none;
+      flex-direction: column;
+      width: 350px;
+      height: 500px;
+      position: fixed;
+      bottom: 100px;
+      right: 30px;
+      background: white;
+      border-radius: 15px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.2);
+      overflow: hidden;
+      z-index: 999;
+    }
+
+    .chat-header {
+      background: #0078d4;
+      color: white;
+      padding: 15px;
+      text-align: center;
+      font-weight: bold;
+    }
+
+    .chat-box {
+      flex: 1;
+      padding: 15px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .bubble {
+      padding: 10px;
+      margin: 8px 0;
+      border-radius: 10px;
+      max-width: 80%;
+      line-height: 1.4;
+      word-wrap: break-word;
+    }
+
+    .user {
+      background: #dcf8c6;
+      align-self: flex-end;
+    }
+
+    .bot {
+      background: #e6e6e6;
+      align-self: flex-start;
+    }
+
+    .input-box {
+      display: flex;
+      border-top: 1px solid #ccc;
+    }
+
+    .input-box input {
+      flex: 1;
+      border: none;
+      padding: 10px;
+      font-size: 16px;
+    }
+
+    .input-box button {
+      background: #0078d4;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      cursor: pointer;
+    }
+
+    a {
+      color: #0078d4;
+      text-decoration: underline;
+    }
+
+    /* Typing Indicator Styles */
+    .typing-indicator {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 5px 10px;
+    }
+
+    .typing-dot {
+      width: 6px;
+      height: 6px;
+      background-color: #0078d4;
+      border-radius: 50%;
+      animation: blink 1.2s infinite;
+    }
+
+    .typing-dot:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+
+    .typing-dot:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+
+    @keyframes blink {
+      0%, 80%, 100% {
+        opacity: 0.2;
+        transform: scale(1);
+      }
+      40% {
+        opacity: 1;
+        transform: scale(1.4);
+      }
+    }
+  </style>
+</head>
+<body>
+
+<h1>Dotsquares ChatBot</h1>
+
+<div class="chat-icon" onclick="toggleChat()">💬</div>
+
+<div class="chat-container" id="chatContainer">
+  <div class="chat-header">Dotsquares ChatBot</div>
+  <div class="chat-box" id="chatBox">
+    <div class="bubble bot">👋 Hello! I'm Leadsy. How can I assist you?</div>
+  </div>
+  <div class="input-box">
+    <input type="text" id="userInput" placeholder="Ask something..." onkeydown="if(event.key==='Enter')sendMessage()" />
+    <button onclick="sendMessage()">Send</button>
+  </div>
+</div>
+
+<script>
+  function toggleChat() {
+    const chat = document.getElementById("chatContainer");
+    chat.style.display = chat.style.display === "flex" ? "none" : "flex";
+  }
+
+  async function sendMessage() {
+    const input = document.getElementById("userInput");
+    const message = input.value.trim();
+    if (!message) return;
+
+    const chatBox = document.getElementById("chatBox");
+
+    // User Message
+    const userBubble = document.createElement("div");
+    userBubble.className = "bubble user";
+    userBubble.textContent = message;
+    chatBox.appendChild(userBubble);
+
+    // Typing Indicator
+    const typingBubble = document.createElement("div");
+    typingBubble.className = "bubble bot";
+    const typingDots = document.createElement("div");
+    typingDots.className = "typing-indicator";
+    typingDots.innerHTML = `
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+    `;
+    typingBubble.appendChild(typingDots);
+    chatBox.appendChild(typingBubble);
+    chatBox.scrollTop = chatBox.scrollHeight;
+    input.value = "";
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+    try {
+      const res = await fetch("http://127.0.0.1:5000/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message }),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+      const data = await res.json();
+      chatBox.removeChild(typingBubble);
+
+      const botBubble = document.createElement("div");
+      botBubble.className = "bubble bot";
+      const answer = data.answer || "❌ No response received.";
+      const link = data.title ? `<br><a href="${data.url}" target="_blank">${data.title}</a>` : "";
+      botBubble.innerHTML = `🤖 ${answer}${link}`;
+      chatBox.appendChild(botBubble);
+      chatBox.scrollTop = chatBox.scrollHeight;
+
+    } catch (error) {
+      chatBox.removeChild(typingBubble);
+      const errorBubble = document.createElement("div");
+      errorBubble.className = "bubble bot";
+      if (error.name === "AbortError") {
+        errorBubble.textContent = "❌ Request timeout. Server took too long to respond.";
+      } else {
+        errorBubble.textContent = "❌ Server not reachable. Try again later.";
+      }
+      chatBox.appendChild(errorBubble);
+    }
+  }
+</script>
+
+</body>
+</html>
